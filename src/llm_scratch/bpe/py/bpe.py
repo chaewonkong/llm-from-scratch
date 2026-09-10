@@ -62,8 +62,8 @@ class BPE():
 
 
     def decode(self, ids: list[int]) -> str:
-        vocab = {idx: bytes([idx]) for idx in range(256)}
-        for (left, right), idx in self.merges.items():
+        vocab = {idx: bytes([idx]) for idx in range(256)} # populate with 256 codes
+        for (left, right), idx in self.merges.items(): # items in merges order preserved; insert order == iteration order
             vocab[idx] = vocab[left] + vocab[right]
 
         tokens = b"".join(vocab[idx] for idx in ids)
