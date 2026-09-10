@@ -1,0 +1,31 @@
+[project]
+name = "llm-scratch"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [{ name = "chaewonkong", email = "chaewonkong@gmail.com" }]
+requires-python = ">=3.12"
+dependencies = [
+    "datasets>=5.0.1",
+    "numpy>=2.5.3",
+    "pyarrow>=25.0.1",
+    "tiktoken>=0.14.0",
+    "torch==2.14.0+cu130",
+    "tqdm>=4.70.0",
+    "wandb>=0.30.0",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true                                # 이 인덱스는 아래 지정된 패키지에만 사용
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }
+
+[project.scripts]
+llm-scratch = "llm_scratch:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
