@@ -1,5 +1,5 @@
 [project]
-name = "llm-scratch"
+name = "llm_scratch"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -24,8 +24,13 @@ explicit = true                                # 이 인덱스는 아래 지정�
 torch = { index = "pytorch-cu130" }
 
 [project.scripts]
-llm-scratch = "llm_scratch:main"
+llm_scratch = "llm_scratch:main"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
