@@ -1,6 +1,7 @@
 import itertools
 
-class BPE():
+
+class BPE:
     merges: dict[tuple[int,int], int] = {}
 
     def most_common_pairs(self, ids: list[int]) -> tuple[int, int] | None:
