@@ -1,6 +1,4 @@
 from llm_scratch.bpe.py.tokenizer import RegexTokenizer
-import pytest
-
 
 
 def test_roundtrip():
