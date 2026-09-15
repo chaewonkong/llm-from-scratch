@@ -57,7 +57,7 @@ class RegexTokenizer(Tokenizer):
             if not count: # no available pair
                 break
 
-            pair = max(count, key=lambda k: count[k])
+            pair = min(count, key=lambda k: (-count[k], k))
             idx = i + BYTE_SIZE
 
             ids = [self._merge(chunk_ids, pair, idx) for chunk_ids in ids]

@@ -1,6 +1,9 @@
 import pytest
 
 from llm_scratch.bpe.py.tokenizer import RegexTokenizer
+from hypothesis import given, settings, strategies as st
+
+import regex as re
 
 
 def test_roundtrip():
@@ -154,3 +157,51 @@ def test_special_token_at_vocab_end():
     tokenizer.train(text="aaaa bbbb aaaa", vocab_size=vocab_size)
 
     assert tokenizer.decode([vocab_size]) == "<|endoftext|>"
+
+def test_tie_break_is_order_independent():
+    t1 = RegexTokenizer()
+    t1.train(" ab cd ab cd", vocab_size=258)
+
+    t2 = RegexTokenizer()
+    t2.train(" cd ab cd ab", vocab_size=258)
+
+    assert list(t1.merges.items()) == list(t2.merges.items())
+
+@settings(max_examples=1000)
+@given(st.text())
+def test_roundtrip_random(text: str):
+    tokenizer = RegexTokenizer()
+    train_text = "The quick brown fox 안녕하세요 🐶 123\n\t"
+    tokenizer.train(text=train_text, vocab_size=300)
+
+    assert tokenizer.decode(tokenizer.encode(text)) == text
+
+def test_merge_never_crosses_chunk_boundary():
+    tokenizer = RegexTokenizer()
+    tokenizer.train("dog. dog. dog. dog. dog.", vocab_size=300)
+    assert b"g." not in tokenizer.vocab.values()
+
+def test_encode_is_chunkwise():
+    tokenizer = RegexTokenizer()
+    tokenizer.train("dog. dog. dog. dog. dog.", vocab_size=300)
+    text = "dog. dog."
+    chunks = re.findall(tokenizer.pattern, text)
+    assert tokenizer.encode(text) == [i for c in chunks for i in tokenizer.encode(c)]
+
+def test_decode_truncated_utf8_does_not_crash():
+    tokenizer = RegexTokenizer()
+    tokenizer.train("한국", vocab_size=258)
+    assert tokenizer.decode([236]) == "\ufffd"
+
+def test_decode_invalid_id_raises():
+    tokenizer = RegexTokenizer()
+    tokenizer.train("한국", vocab_size=258)
+    with pytest.raises(ValueError):
+        tokenizer.decode([99999])
+
+def test_encode_special_token():
+    tokenizer = RegexTokenizer(special_tokens={"<|endoftext|>": 300})
+    tokenizer.train("hello world hello", vocab_size=300)
+    ids = tokenizer.encode("hello<|endoftext|>world")
+    assert 300 in ids
+    assert tokenizer.decode(ids) == "hello<|endoftext|>world"
