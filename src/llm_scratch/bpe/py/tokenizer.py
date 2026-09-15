@@ -38,7 +38,7 @@ class RegexTokenizer(Tokenizer):
 
     def train(self, text: str, vocab_size: int, verbose=False):
         assert vocab_size >= BYTE_SIZE
-        num_merges = vocab_size + BYTE_SIZE
+        num_merges = vocab_size - BYTE_SIZE
 
         chunks: list[str] = re.findall(self.pattern, text)
         ids = [list(ch.encode('utf-8')) for ch in chunks]
@@ -54,8 +54,8 @@ class RegexTokenizer(Tokenizer):
                 for pair in itertools.pairwise(chunk_ids):
                     count[pair] = count.get(pair, 0) + 1
 
-            if not count:
-                continue
+            if not count: # no available pair
+                break
 
             pair = max(count, key=lambda k: count[k])
             idx = i + BYTE_SIZE
@@ -69,6 +69,12 @@ class RegexTokenizer(Tokenizer):
 
         self.merges = merges
         self.vocab = vocab
+
+        collided = set(self.special_tokens.values()) & set(vocab)
+        assert not collided, f"special token id collides with vocab id: {collided}"
+
+        return [idx for chunk_ids in ids for idx in chunk_ids]
+
 
  
     def _merge(self, ids: list[int], pair: tuple[int,int], new_id: int) -> list[int]:

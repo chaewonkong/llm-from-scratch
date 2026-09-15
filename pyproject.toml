@@ -9,6 +9,7 @@ dependencies = [
     "datasets>=5.0.1",
     "numpy>=2.5.3",
     "pyarrow>=25.0.1",
+    "regex>=2026.9.10",
     "tiktoken>=0.14.0",
     "torch==2.14.0+cu130",
     "tqdm>=4.70.0",
