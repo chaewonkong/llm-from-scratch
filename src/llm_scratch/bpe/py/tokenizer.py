@@ -13,7 +13,7 @@ class Tokenizer:
     def train(self, text: str, vocab_size: int, verbose=False):
         raise NotImplementedError
 
-    def encode(self, text: str) -> list[int]:
+    def encode(self, text: str, allowed_special="none_raise") -> list[int]:
         raise NotImplementedError
 
     def decode(self, ids: list[int]) -> str:
@@ -92,7 +92,7 @@ class RegexTokenizer(Tokenizer):
         return new_ids
 
 
-    def encode(self, text)-> list[int]:
+    def encode_ordinary(self, text)-> list[int]:
         """Ignores any special tokens"""
         text_chunks = re.findall(self.pattern, text)
         ids = []
@@ -120,6 +120,33 @@ class RegexTokenizer(Tokenizer):
 
             ids = self._merge(ids, pair, self.merges[pair])
 
+        return ids
+
+    def encode(self, text: str, allowed_special="none_raise") -> list[int]:
+        """allowed_special = "all" | "none" | "none_raise"
+        """
+
+        special: dict[str, int] = {}
+        if allowed_special == "all":
+            special = self.special_tokens
+        elif allowed_special == "none":
+            pass
+        elif allowed_special == "none_raise":
+            assert all(token not in text for token in self.special_tokens)
+        else:
+            raise ValueError(f"allowed_special={allowed_special} not acceptable")
+
+        if not special:
+            return self.encode_ordinary(text)
+
+        special_pattern = "(" + "|".join(re.escape(k) for k in special) + ")"
+        special_chunks = re.split(special_pattern, text)
+        ids = []
+        for part in special_chunks:
+            if part in special:
+                ids.append(special[part])
+            else:
+                ids.extend(self.encode_ordinary(part))
         return ids
 
             
