@@ -92,7 +92,7 @@ def test_vocab_size():
     assert vocab_size == len(tokenizer.vocab)
 
 def test_merge_vocab_size():
-    # given
+    # given 
     vocab_size = 300
     text = "대규모 언어 모델(LLM)은 방대한 양의 데이터를 학습하여 자연어 및 기타 유형의 콘텐츠를 이해하고 생성하여 광범위한 작업을 수행할 수 있는 딥 러닝의 카테고리입니다. LLM은 단어 시퀀스를 처리하고 텍스트의 패턴을 포착하는 데 탁월한 신경망 아키텍처의 일종(트랜스포머라고 함)을 기반으로 구축됩니다."
     tokenizer = RegexTokenizer()
@@ -130,19 +130,6 @@ def test_roundtrip_untrained_data():
     # when
     round_trip_result = tokenizer.decode(tokenizer.encode(untrained_text))
     assert untrained_text == round_trip_result
-
-def test_encode_matches_training_ids():
-    # given
-    text = "대규모 언어 모델(LLM)은 방대한 양의 데이터를 학습하여 자연어 및 기타 유형의 콘텐츠를 이해하고 생성하여 광범위한 작업을 수행할 수 있는 딥 러닝의 카테고리입니다. LLM은 단어 시퀀스를 처리하고 텍스트의 패턴을 포착하는 데 탁월한 신경망 아키텍처의 일종(트랜스포머라고 함)을 기반으로 구축됩니다."
-    tokenizer = RegexTokenizer()
-
-    train_ids = tokenizer.train(text=text, vocab_size=512)
-
-    # when
-    encoded_ids = tokenizer.encode(text)
-
-    # then
-    assert train_ids == encoded_ids
 
 def test_special_token_collision_raises():
     tokenizer = RegexTokenizer(special_tokens={"<|endoftext|>": 256})

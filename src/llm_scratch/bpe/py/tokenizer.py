@@ -28,6 +28,12 @@ class Tokenizer:
 REG_PATTERN = r"""'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}++|\p{N}{1,3}+| ?[^\s\p{L}\p{N}]++[\r\n]*+|\s++$|\s*[\r\n]|\s+(?!\S)|\s"""
 BYTE_SIZE = 256
 
+def counter(chunks: list[str]) -> list[tuple[list[int], int]]:
+    count = {}
+    for chunk in chunks:
+        count[chunk] = count.get(chunk, 0) + 1
+
+    return [(list(w.encode('utf-8')), f) for w, f in count.items()]
 
 
 class RegexTokenizer(Tokenizer):
@@ -36,12 +42,11 @@ class RegexTokenizer(Tokenizer):
         self.pattern: re.Pattern[str] = re.compile(pattern)
         self.special_tokens: dict[str, int] = special_tokens if special_tokens else {}
 
-    def train(self, text: str, vocab_size: int, verbose=False):
+    def train(self, text: str, vocab_size: int, verbose=False) -> None:
         assert vocab_size >= BYTE_SIZE
         num_merges = vocab_size - BYTE_SIZE
 
-        chunks: list[str] = re.findall(self.pattern, text)
-        ids = [list(ch.encode('utf-8')) for ch in chunks]
+        words = counter(re.findall(self.pattern, text))
 
         merges: dict[tuple[int,int], int] = {}
         vocab: dict[int, bytes] = {idx: bytes([idx]) for idx in range(BYTE_SIZE)}
@@ -50,9 +55,9 @@ class RegexTokenizer(Tokenizer):
             # count in every merge iteration
             count: dict[tuple[int, int], int] = {}
 
-            for chunk_ids in ids:
-                for pair in itertools.pairwise(chunk_ids):
-                    count[pair] = count.get(pair, 0) + 1
+            for word, frequency in words:
+                for pair in itertools.pairwise(word):
+                    count[pair] = count.get(pair, 0) + frequency
 
             if not count: # no available pair
                 break
@@ -60,7 +65,7 @@ class RegexTokenizer(Tokenizer):
             pair = min(count, key=lambda k: (-count[k], k))
             idx = i + BYTE_SIZE
 
-            ids = [self._merge(chunk_ids, pair, idx) for chunk_ids in ids]
+            words = [(self._merge(word, pair, idx), freq) for word, freq in words]
             merges[pair] = idx
             vocab[idx] = vocab[pair[0]] + vocab[pair[1]]
 
@@ -72,8 +77,6 @@ class RegexTokenizer(Tokenizer):
 
         collided = set(self.special_tokens.values()) & set(vocab)
         assert not collided, f"special token id collides with vocab id: {collided}"
-
-        return [idx for chunk_ids in ids for idx in chunk_ids]
 
 
  
