@@ -39,17 +39,18 @@ def main() -> None:
 
     tok = RegexTokenizer()
     t0 = time.perf_counter()
-    train_ids = tok.train(text, vocab_size=args.vocab)
+    tok.train(text, vocab_size=args.vocab)
     elapsed = time.perf_counter() - t0
 
     n_merges = len(tok.merges)
     print(f"train: vocab={args.vocab} merges={n_merges} time={elapsed:.1f}s "
           f"({elapsed / max(n_merges, 1):.2f}s/merge)")
-    print(f"compression: {len(text) / len(train_ids):.2f} chars/token")
 
     t0 = time.perf_counter()
     ids = tok.encode(text)
-    print(f"encode: {time.perf_counter() - t0:.1f}s, roundtrip ok={tok.decode(ids) == text}")
+    encode_elapsed = time.perf_counter() - t0
+    print(f"compression: {len(text) / len(ids):.2f} chars/token")
+    print(f"encode: {encode_elapsed:.1f}s, roundtrip ok={tok.decode(ids) == text}")
 
 
 if __name__ == "__main__":
