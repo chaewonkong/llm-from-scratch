@@ -5,9 +5,9 @@ import regex as re
 
 class Tokenizer:
     def __init__(self) -> None:
-        self.merges: dict[tuple[int,int],int] = {}
+        self.merges: dict[tuple[int, int], int] = {}
         self.pattern = ""
-        self.special_tokens:dict[str,int] = {}
+        self.special_tokens: dict[str, int] = {}
         self.vocab: dict[int, bytes] = {}
 
     def train(self, text: str, vocab_size: int, verbose=False):
@@ -25,15 +25,17 @@ class Tokenizer:
     def load(self, model_file):
         raise NotImplementedError
 
+
 REG_PATTERN = r"""'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}++|\p{N}{1,3}+| ?[^\s\p{L}\p{N}]++[\r\n]*+|\s++$|\s*[\r\n]|\s+(?!\S)|\s"""
 BYTE_SIZE = 256
+
 
 def counter(chunks: list[str]) -> list[tuple[list[int], int]]:
     count = {}
     for chunk in chunks:
         count[chunk] = count.get(chunk, 0) + 1
 
-    return [(list(w.encode('utf-8')), f) for w, f in count.items()]
+    return [(list(w.encode("utf-8")), f) for w, f in count.items()]
 
 
 class RegexTokenizer(Tokenizer):
@@ -48,18 +50,18 @@ class RegexTokenizer(Tokenizer):
 
         words = counter(re.findall(self.pattern, text))
 
-        merges: dict[tuple[int,int], int] = {}
+        merges: dict[tuple[int, int], int] = {}
         vocab: dict[int, bytes] = {idx: bytes([idx]) for idx in range(BYTE_SIZE)}
 
         for i in range(num_merges):
             # count in every merge iteration
-            count: dict[tuple[int, int], int] = {}
+            count: dict[tuple[int, int], int] = {}  # TODO: incremental
 
             for word, frequency in words:
                 for pair in itertools.pairwise(word):
                     count[pair] = count.get(pair, 0) + frequency
 
-            if not count: # no available pair
+            if not count:  # no available pair
                 break
 
             pair = min(count, key=lambda k: (-count[k], k))
@@ -70,7 +72,9 @@ class RegexTokenizer(Tokenizer):
             vocab[idx] = vocab[pair[0]] + vocab[pair[1]]
 
             if verbose:
-                print(f"merge {i+1}/{num_merges}: {pair} -> {idx} ({vocab[idx]}) had {count[pair]} occurrences")
+                print(
+                    f"merge {i + 1}/{num_merges}: {pair} -> {idx} ({vocab[idx]}) had {count[pair]} occurrences"
+                )
 
         self.merges = merges
         self.vocab = vocab
@@ -78,14 +82,12 @@ class RegexTokenizer(Tokenizer):
         collided = set(self.special_tokens.values()) & set(vocab)
         assert not collided, f"special token id collides with vocab id: {collided}"
 
+    def _merge(self, ids: list[int], pair: tuple[int, int], new_id: int) -> list[int]:
+        new_ids = []  # TODO: replace
 
- 
-    def _merge(self, ids: list[int], pair: tuple[int,int], new_id: int) -> list[int]:
-        new_ids = []
-
-        i= 0
+        i = 0
         while i < len(ids):
-            if i < len(ids)-1 and ids[i] == pair[0] and ids[i+1] == pair[1]:
+            if i < len(ids) - 1 and ids[i] == pair[0] and ids[i + 1] == pair[1]:
                 new_ids.append(new_id)
                 i += 2
             else:
@@ -94,25 +96,23 @@ class RegexTokenizer(Tokenizer):
 
         return new_ids
 
-
-    def encode_ordinary(self, text)-> list[int]:
+    def encode_ordinary(self, text) -> list[int]:
         """Ignores any special tokens"""
         text_chunks = re.findall(self.pattern, text)
         ids = []
         for chunk in text_chunks:
-            chunk_bytes = chunk.encode('utf-8')
+            chunk_bytes = chunk.encode("utf-8")
             chunk_ids = self._encode_chunk(chunk_bytes)
             ids.extend(chunk_ids)
         return ids
 
-
     def _encode_chunk(self, text_bytes: bytes) -> list[int]:
-        ids = list(text_bytes)
+        ids = list(text_bytes)  # TODO: use counter
         while len(ids) >= 2:
             # find the pair with the lowest merge index
-            count: dict[tuple[int,int], int] = {}
+            count: dict[tuple[int, int], int] = {}
             for pair in itertools.pairwise(ids):
-                count[pair] = count.get(pair, 0)+1
+                count[pair] = count.get(pair, 0) + 1
 
             # if merges does not have pair, set to maximum float number;
             # send it to last
@@ -126,8 +126,7 @@ class RegexTokenizer(Tokenizer):
         return ids
 
     def encode(self, text: str, allowed_special="none_raise") -> list[int]:
-        """allowed_special = "all" | "none" | "none_raise"
-        """
+        """allowed_special = "all" | "none" | "none_raise" """
 
         special: dict[str, int] = {}
         if allowed_special == "all":
@@ -152,24 +151,16 @@ class RegexTokenizer(Tokenizer):
                 ids.extend(self.encode_ordinary(part))
         return ids
 
-            
-
     def decode(self, ids: list[int]) -> str:
         part_bytes = []
-        inversed_special_tokens = {v:k for k,v in self.special_tokens.items()}
+        inversed_special_tokens = {v: k for k, v in self.special_tokens.items()}
         for idx in ids:
             if idx in self.vocab:
                 part_bytes.append(self.vocab[idx])
             elif idx in inversed_special_tokens:
-                part_bytes.append(inversed_special_tokens[idx].encode('utf-8'))
+                part_bytes.append(inversed_special_tokens[idx].encode("utf-8"))
             else:
                 raise ValueError(f"invalid token id: {idx}")
 
         text_bytes = b"".join(part_bytes)
-        return text_bytes.decode('utf-8', errors="replace")
-
-
-            
-
-
-
+        return text_bytes.decode("utf-8", errors="replace")
