@@ -2,13 +2,14 @@
 
 usage: python scripts/bench_train.py --mb 2 --vocab 512
 """
+
 import argparse
 import time
 from pathlib import Path
 
 import pyarrow.parquet as pq
 
-from llm_scratch.bpe.py.tokenizer import RegexTokenizer
+from llm_scratch.bpe.py.regex_tokenizer import RegexTokenizer
 
 DEFAULT_PARQUET = Path.home() / "data/fineweb-edu/sample/10BT/000_00000.parquet"
 
@@ -35,7 +36,9 @@ def main() -> None:
 
     text = load_text(args.parquet, int(args.mb * 1024 * 1024))
     n_docs = len(text.split("\n\n"))
-    print(f"loaded {len(text.encode('utf-8')) / 1e6:.1f} MB, {n_docs} docs, {len(text):,} chars")
+    print(
+        f"loaded {len(text.encode('utf-8')) / 1e6:.1f} MB, {n_docs} docs, {len(text):,} chars"
+    )
 
     tok = RegexTokenizer()
     t0 = time.perf_counter()
@@ -43,8 +46,10 @@ def main() -> None:
     elapsed = time.perf_counter() - t0
 
     n_merges = len(tok.merges)
-    print(f"train: vocab={args.vocab} merges={n_merges} time={elapsed:.1f}s "
-          f"({elapsed / max(n_merges, 1):.2f}s/merge)")
+    print(
+        f"train: vocab={args.vocab} merges={n_merges} time={elapsed:.1f}s "
+        f"({elapsed / max(n_merges, 1):.2f}s/merge)"
+    )
 
     t0 = time.perf_counter()
     ids = tok.encode(text)

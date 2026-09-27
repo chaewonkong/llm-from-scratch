@@ -16,6 +16,14 @@ def word_counter(chunks: list[str]) -> list[tuple[list[int], int]]:
     return [(list(w.encode("utf-8")), f) for w, f in count.items()]
 
 
+def word_counter_v2(chunks: list[str]) -> dict[str, int]:
+    count = {}
+    for chunk in chunks:
+        count[chunk] = count.get(chunk, 0) + 1
+
+    return count
+
+
 class RegexTokenizer(Tokenizer):
     def __init__(self, pattern=REG_PATTERN, special_tokens=None) -> None:
         super().__init__()
@@ -81,12 +89,21 @@ class RegexTokenizer(Tokenizer):
 
     def encode_ordinary(self, text) -> list[int]:
         """Ignores any special tokens"""
-        text_chunks = re.findall(self.pattern, text)
-        ids = []
-        for chunk in text_chunks:
-            chunk_bytes = chunk.encode("utf-8")
-            chunk_ids = self._encode_chunk(chunk_bytes)
-            ids.extend(chunk_ids)
+        chunks: list[str] = re.findall(self.pattern, text)
+        unique_chunks = set(chunks)
+
+        word_map: dict[str, list[int]] = {}
+        for word in unique_chunks:
+            c_ids = self._encode_chunk(word.encode("utf-8"))
+            word_map[word] = c_ids
+
+        ids: list[int] = []
+        for chunk in chunks:
+            chunk_ids = word_map.get(chunk)
+            if chunk_ids:
+                ids.extend(chunk_ids)
+            else:
+                ids.extend(list(chunk.encode("utf-8")))
         return ids
 
     def _encode_chunk(self, text_bytes: bytes) -> list[int]:

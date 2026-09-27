@@ -18,6 +18,12 @@ Refactored (`Counter`-based pair counting, uncommitted as of 2026-09-19)
 | 2026-09-19 | 2.1 MB (486 docs) | 4096  | 3840   | 185.3 s | 0.05    | 3.47        | 3.0 s  | ok        | refactored |
 | 2026-09-19 | 52.5 MB (11071 docs) | 4096 | 3840 | 1844.1 s | 0.48 | 3.44 | 74.7 s | ok | refactored |
 
+Encode cache (unique-chunk memoization in `encode_ordinary`, `src/llm_scratch/bpe/py/regex_tokenizer.py`, uncommitted as of 2026-09-27)
+
+| date       | corpus            | vocab | merges | train   | s/merge | chars/token | encode | roundtrip | note         |
+|------------|-------------------|-------|--------|---------|---------|-------------|--------|-----------|--------------|
+| 2026-09-27 | 2.1 MB (486 docs) | 4096  | 3840   | 182.9 s | 0.05    | 3.47        | 0.6 s  | ok        | encode cache |
+
 Notes
 
 - Per-merge cost drops over training because `train` recounts every pair over the
@@ -36,3 +42,8 @@ Notes
   number of unique chunks grows much slower than the total chunk count.
 - Updated reference point for the Rust port: 50 MB / vocab 4096 must beat 31 min
   (1844 s) train and 74.7 s encode.
+- Encode cache (2026-09-27): `encode_ordinary` now runs `_encode_chunk` once per unique
+  regex chunk and reuses the result for repeats, the same idea as the train refactor.
+  Compression (3.47) and roundtrip are unchanged; encode drops 5x at 2 MB / 4096
+  (3.0 s -> 0.6 s). Train time is unchanged (185.3 s -> 182.9 s, noise).
+  `scripts/bench_train.py` now imports `RegexTokenizer` from `regex_tokenizer.py`.
