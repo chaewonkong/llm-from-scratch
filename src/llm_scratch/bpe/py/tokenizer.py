@@ -1,3 +1,6 @@
+import json
+
+
 class Tokenizer:
     def __init__(self) -> None:
         self.merges: dict[tuple[int, int], int] = {}
@@ -15,7 +18,10 @@ class Tokenizer:
         raise NotImplementedError
 
     def save(self, file_name):
-        raise NotImplementedError
+        with open(f"merges/{file_name}.json", mode="w") as f:
+            json.dump([list(p) for p in self.merges], f)
 
     def load(self, model_file):
-        raise NotImplementedError
+        with open(f"merges/{model_file}.json", mode="w") as f:
+            pairs: list[list[int]] = json.load(f)
+            self.merges = {(a, b): 256 + i for i, (a, b) in enumerate(pairs)}
