@@ -36,3 +36,7 @@ dev = [
     "hypothesis>=6.168.0",
     "pytest>=9.1.1",
 ]
+
+[tool.pytest.ini_options]
+addopts = '-m "not slow"'
+markers = ["slow: trains on FineWeb-Edu (~1 min); run with -m slow"]
