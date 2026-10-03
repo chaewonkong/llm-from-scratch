@@ -30,6 +30,14 @@ Incremental pair counts (`train` updates `count` per merge instead of recounting
 |------------|-------------------|-------|--------|---------|---------|-------------|--------|-----------|-------------------|
 | 2026-10-03 | 2.1 MB (486 docs) | 4096  | 3840   | 62.1 s  | 0.02    | 3.47        | 0.7 s  | ok        | incremental count |
 
+Inverted index + heap (`pair -> word idx` index, commit `b317614`; max-heap with lazy deletion for best pair, commit `243c710`, 2026-10-03)
+
+| date       | corpus            | vocab | merges | train   | s/merge | chars/token | encode | roundtrip | note                 |
+|------------|-------------------|-------|--------|---------|---------|-------------|--------|-----------|----------------------|
+| 2026-10-03 | 2.1 MB (486 docs) | 300   | 44     | 0.7 s   | 0.02    | 1.43        | 0.4 s  | ok        | inverted index + heap |
+| 2026-10-03 | 2.1 MB (486 docs) | 4096  | 3840   | 1.6 s   | <0.01   | 3.47        | 0.5 s  | ok        | inverted index + heap |
+| 2026-10-03 | 52.5 MB (11071 docs) | 4096 | 3840 | 16.6 s | <0.01 | 3.44 | 7.2 s | ok | inverted index + heap |
+
 Notes
 
 - Per-merge cost drops over training because `train` recounts every pair over the
@@ -61,3 +69,30 @@ Notes
   which is noise because encode was not touched. Each iteration still calls `_merge`
   on every word and picks the best pair with a linear `min` over `count`, so those
   two steps are the next bottlenecks.
+- Inverted index + heap (2026-10-03): two changes, measured together. First,
+  `pair_word_idx_map` maps each pair to the words that contain it, so a merge calls
+  `_merge` only on those words instead of on every word. Second, a max-heap
+  (`(-count, pair)`) with lazy deletion picks the best pair: after each merge, every
+  pair whose count changed is pushed again, and a popped entry whose count no longer
+  matches `count` is skipped. Ties still break on the smallest pair, the same as the
+  old `min(count, key=lambda k: (-count[k], k))`. `tests/test_merges_reference.py`
+  (`-m slow`) passes, so the merges are identical to the reference.
+  Compression (3.47 / 3.44) and roundtrip are unchanged.
+- Train drops 39x at 2 MB / 4096 (62.1 s -> 1.6 s) and 111x at 50 MB / 4096
+  (1844.1 s -> 16.6 s). The incremental-count commit was never run at 50 MB, so the
+  111x covers incremental counts, the inverted index and the heap together. Against
+  the first baseline, 50 MB / 4096 went from 6.5 h to 16.6 s (~1400x).
+- Merges are no longer the main cost. Vocab 300 (44 merges) already takes 0.7 s of
+  the 1.6 s at vocab 4096 on the same 2 MB. So up to ~0.7 s is fixed setup (regex
+  `findall`, `word_counter`, the first pair count, `heapify`), and all 3796 later
+  merges cost about 0.9 s (~0.2 ms each). The s/merge column now rounds to 0.00, so it
+  says little. `bench_train.py` should time setup and the merge loop separately.
+- Train time now grows slower than the corpus: 25x the data gives 10.4x the train
+  time (1.6 s -> 16.6 s) and 14x the encode time (0.5 s -> 7.2 s). Both depend on
+  the number of unique chunks more than on total size.
+- Encode was not touched, but 50 MB encode is 7.2 s versus 74.7 s in the last 50 MB
+  run (2026-09-19). That 10x comes from the encode cache (2026-09-27), which was never
+  run at 50 MB. The 2 MB encode change (0.7 s -> 0.5 s) is noise.
+- Updated reference point for the Rust port: 50 MB / vocab 4096 must beat 16.6 s
+  train and 7.2 s encode (~7 MB/s). Python is now close enough that the Rust port
+  should be compared on a larger corpus or vocab as well.
