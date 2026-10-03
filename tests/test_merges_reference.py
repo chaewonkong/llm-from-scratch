@@ -10,7 +10,9 @@ FIXTURE = Path(__file__).parent / "fixtures/merges_d75e8ed_2mb_v4096.json"
 
 
 @pytest.mark.slow
-@pytest.mark.skipif(not DEFAULT_PARQUET.exists(), reason="FineWeb-Edu parquet not found")
+@pytest.mark.skipif(
+    not DEFAULT_PARQUET.exists(), reason="FineWeb-Edu parquet not found"
+)
 def test_merges_match_reference():
     """Merges must match the pre-incremental train() (commit d75e8ed) exactly."""
     # given

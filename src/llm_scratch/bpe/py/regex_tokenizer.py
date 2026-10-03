@@ -16,14 +16,6 @@ def word_counter(chunks: list[str]) -> list[tuple[list[int], int]]:
     return [(list(w.encode("utf-8")), f) for w, f in count.items()]
 
 
-def word_counter_v2(chunks: list[str]) -> dict[str, int]:
-    count = {}
-    for chunk in chunks:
-        count[chunk] = count.get(chunk, 0) + 1
-
-    return count
-
-
 class RegexTokenizer(Tokenizer):
     def __init__(self, pattern=REG_PATTERN, special_tokens=None) -> None:
         super().__init__()
@@ -40,9 +32,14 @@ class RegexTokenizer(Tokenizer):
         vocab: dict[int, bytes] = {idx: bytes([idx]) for idx in range(BYTE_SIZE)}
 
         count: dict[tuple[int, int], int] = {}
-        for word, frequency in words:
+        pair_word_idx_map: dict[
+            tuple[int, int], set[int]
+        ] = {}  # {pair: set(word_idx..)}
+        for i in range(len(words)):
+            word, frequency = words[i]
             for pair in itertools.pairwise(word):
                 count[pair] = count.get(pair, 0) + frequency
+                pair_word_idx_map.setdefault(pair, set()).add(i)
 
         for i in range(num_merges):
             if not count:  # no available pair
@@ -52,20 +49,25 @@ class RegexTokenizer(Tokenizer):
             pair_count = count[pair]
             idx = i + BYTE_SIZE
 
-            for j in range(len(words)):
-                w, freq = words[j]
-                new_word = self._merge(w, pair, idx)
-                words[j] = new_word, freq
+            for word_idx in pair_word_idx_map.pop(pair):
+                word, freq = words[word_idx]
+                new_word = self._merge(word, pair, idx)
+                words[word_idx] = new_word, freq
 
-                # if there was merge,
-                if new_word != w:
-                    for p in itertools.pairwise(w):  # reset
-                        count[p] -= freq
-                        if count[p] == 0:
-                            del count[p]  # cleanup
+                for p in itertools.pairwise(word):  # reset
+                    count[p] -= freq
+                    if count[p] == 0:  # cleanup
+                        del count[p]
+                        pair_word_idx_map.pop(p, None)
 
-                    for p in itertools.pairwise(new_word):  # assign
-                        count[p] = count.get(p, 0) + freq
+                for p in itertools.pairwise(new_word):  # assign
+                    count[p] = count.get(p, 0) + freq
+                    pair_word_idx_map.setdefault(p, set()).add(word_idx)
+
+                gone = set(itertools.pairwise(word)) - set(itertools.pairwise(new_word))
+                for p in gone:
+                    if p in pair_word_idx_map:
+                        pair_word_idx_map[p].discard(word_idx)
 
             merges[pair] = idx
             vocab[idx] = vocab[pair[0]] + vocab[pair[1]]
