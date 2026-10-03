@@ -49,6 +49,7 @@ class RegexTokenizer(Tokenizer):
                 break
 
             pair = min(count, key=lambda k: (-count[k], k))
+            pair_count = count[pair]
             idx = i + BYTE_SIZE
 
             for j in range(len(words)):
@@ -71,7 +72,7 @@ class RegexTokenizer(Tokenizer):
 
             if verbose:
                 print(
-                    f"merge {i + 1}/{num_merges}: {pair} -> {idx} ({vocab[idx]}) had {count[pair]} occurrences"
+                    f"merge {i + 1}/{num_merges}: {pair} -> {idx} ({vocab[idx]}) had {pair_count} occurrences"
                 )
 
         self.merges = merges
@@ -101,29 +102,22 @@ class RegexTokenizer(Tokenizer):
 
         word_map: dict[str, list[int]] = {}
         for word in unique_chunks:
-            c_ids = self._encode_chunk(word.encode("utf-8"))
+            c_ids = self._encode_chunk(list(word.encode("utf-8")))
             word_map[word] = c_ids
 
         ids: list[int] = []
         for chunk in chunks:
-            chunk_ids = word_map.get(chunk)
-            if chunk_ids:
-                ids.extend(chunk_ids)
-            else:
-                ids.extend(list(chunk.encode("utf-8")))
+            ids.extend(word_map[chunk])
         return ids
 
-    def _encode_chunk(self, text_bytes: bytes) -> list[int]:
-        ids = list(text_bytes)  # TODO: use counter
+    def _encode_chunk(self, ids: list[int]) -> list[int]:
+        # TODO: use counter
         while len(ids) >= 2:
-            # find the pair with the lowest merge index
-            count: dict[tuple[int, int], int] = {}
-            for pair in itertools.pairwise(ids):
-                count[pair] = count.get(pair, 0) + 1
-
             # if merges does not have pair, set to maximum float number;
             # send it to last
-            pair = min(count, key=lambda p: self.merges.get(p, float("inf")))
+            pair = min(
+                itertools.pairwise(ids), key=lambda p: self.merges.get(p, float("inf"))
+            )
 
             if pair not in self.merges:
                 break
