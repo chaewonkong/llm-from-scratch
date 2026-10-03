@@ -1,4 +1,5 @@
 import itertools
+from heapq import heapify, heappop, heappush
 
 import regex as re
 
@@ -32,23 +33,29 @@ class RegexTokenizer(Tokenizer):
         vocab: dict[int, bytes] = {idx: bytes([idx]) for idx in range(BYTE_SIZE)}
 
         count: dict[tuple[int, int], int] = {}
-        pair_word_idx_map: dict[
-            tuple[int, int], set[int]
-        ] = {}  # {pair: set(word_idx..)}
+
+        # {pair: set(word_idx..)}
+        pair_word_idx_map: dict[tuple[int, int], set[int]] = {}
+
         for i in range(len(words)):
             word, frequency = words[i]
             for pair in itertools.pairwise(word):
                 count[pair] = count.get(pair, 0) + frequency
                 pair_word_idx_map.setdefault(pair, set()).add(i)
 
+        h = [(-c, p) for p, c in count.items()]
+        heapify(h)
         for i in range(num_merges):
             if not count:  # no available pair
                 break
 
-            pair = min(count, key=lambda k: (-count[k], k))
-            pair_count = count[pair]
+            neg_count, pair = heappop(h)
+            while -neg_count != count.get(pair):
+                neg_count, pair = heappop(h)
+
             idx = i + BYTE_SIZE
 
+            touched: set[tuple[int, int]] = set()
             for word_idx in pair_word_idx_map.pop(pair):
                 word, freq = words[word_idx]
                 new_word = self._merge(word, pair, idx)
@@ -59,22 +66,30 @@ class RegexTokenizer(Tokenizer):
                     if count[p] == 0:  # cleanup
                         del count[p]
                         pair_word_idx_map.pop(p, None)
+                    else:
+                        touched.add(p)
 
                 for p in itertools.pairwise(new_word):  # assign
                     count[p] = count.get(p, 0) + freq
                     pair_word_idx_map.setdefault(p, set()).add(word_idx)
+                    touched.add(p)
 
                 gone = set(itertools.pairwise(word)) - set(itertools.pairwise(new_word))
                 for p in gone:
                     if p in pair_word_idx_map:
                         pair_word_idx_map[p].discard(word_idx)
 
+            for p in touched:  # push to the heap
+                c = count.get(p)
+                if c:
+                    heappush(h, (-c, p))
+
             merges[pair] = idx
             vocab[idx] = vocab[pair[0]] + vocab[pair[1]]
 
             if verbose:
                 print(
-                    f"merge {i + 1}/{num_merges}: {pair} -> {idx} ({vocab[idx]}) had {pair_count} occurrences"
+                    f"merge {i + 1}/{num_merges}: {pair} -> {idx} ({vocab[idx]}) had {-neg_count} occurrences"
                 )
 
         self.merges = merges
@@ -84,8 +99,7 @@ class RegexTokenizer(Tokenizer):
         assert not collided, f"special token id collides with vocab id: {collided}"
 
     def _merge(self, ids: list[int], pair: tuple[int, int], new_id: int) -> list[int]:
-        new_ids = []  # TODO: replace
-
+        new_ids = []
         i = 0
         while i < len(ids):
             if i < len(ids) - 1 and ids[i] == pair[0] and ids[i + 1] == pair[1]:
@@ -113,7 +127,6 @@ class RegexTokenizer(Tokenizer):
         return ids
 
     def _encode_chunk(self, ids: list[int]) -> list[int]:
-        # TODO: use counter
         while len(ids) >= 2:
             # if merges does not have pair, set to maximum float number;
             # send it to last
