@@ -45,20 +45,27 @@ class RegexTokenizer(Tokenizer):
                 count[pair] = count.get(pair, 0) + frequency
 
         for i in range(num_merges):
-            # count in every merge iteration
-            # TODO: mark word
-            count: dict[tuple[int, int], int] = {}
-            for word, frequency in words:
-                for pair in itertools.pairwise(word):
-                    count[pair] = count.get(pair, 0) + frequency
-
             if not count:  # no available pair
                 break
 
             pair = min(count, key=lambda k: (-count[k], k))
             idx = i + BYTE_SIZE
 
-            words = [(self._merge(word, pair, idx), freq) for word, freq in words]
+            for j in range(len(words)):
+                w, freq = words[j]
+                new_word = self._merge(w, pair, idx)
+                words[j] = new_word, freq
+
+                # if there was merge,
+                if new_word != w:
+                    for p in itertools.pairwise(w):  # reset
+                        count[p] -= freq
+                        if count[p] == 0:
+                            del count[p]  # cleanup
+
+                    for p in itertools.pairwise(new_word):  # assign
+                        count[p] = count.get(p, 0) + freq
+
             merges[pair] = idx
             vocab[idx] = vocab[pair[0]] + vocab[pair[1]]
 
