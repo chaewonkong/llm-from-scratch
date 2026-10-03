@@ -24,6 +24,12 @@ Encode cache (unique-chunk memoization in `encode_ordinary`, `src/llm_scratch/bp
 |------------|-------------------|-------|--------|---------|---------|-------------|--------|-----------|--------------|
 | 2026-09-27 | 2.1 MB (486 docs) | 4096  | 3840   | 182.9 s | 0.05    | 3.47        | 0.6 s  | ok        | encode cache |
 
+Incremental pair counts (`train` updates `count` per merge instead of recounting, commit `14204ba`, 2026-10-03)
+
+| date       | corpus            | vocab | merges | train   | s/merge | chars/token | encode | roundtrip | note              |
+|------------|-------------------|-------|--------|---------|---------|-------------|--------|-----------|-------------------|
+| 2026-10-03 | 2.1 MB (486 docs) | 4096  | 3840   | 62.1 s  | 0.02    | 3.47        | 0.7 s  | ok        | incremental count |
+
 Notes
 
 - Per-merge cost drops over training because `train` recounts every pair over the
@@ -47,3 +53,11 @@ Notes
   Compression (3.47) and roundtrip are unchanged; encode drops 5x at 2 MB / 4096
   (3.0 s -> 0.6 s). Train time is unchanged (185.3 s -> 182.9 s, noise).
   `scripts/bench_train.py` now imports `RegexTokenizer` from `regex_tokenizer.py`.
+- Incremental pair counts (2026-10-03): `train` builds `count` once before the loop.
+  After each merge it subtracts the old pairs and adds the new pairs, but only for
+  words the merge actually changed. Before this change, every iteration recounted
+  pairs over all unique chunks. Compression (3.47) and roundtrip are unchanged.
+  Train drops 2.9x at 2 MB / 4096 (182.9 s -> 62.1 s). Encode moves 0.6 s -> 0.7 s,
+  which is noise because encode was not touched. Each iteration still calls `_merge`
+  on every word and picks the best pair with a linear `min` over `count`, so those
+  two steps are the next bottlenecks.
