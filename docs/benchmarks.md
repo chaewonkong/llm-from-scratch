@@ -38,6 +38,14 @@ Inverted index + heap (`pair -> word idx` index, commit `b317614`; max-heap with
 | 2026-10-03 | 2.1 MB (486 docs) | 4096  | 3840   | 1.6 s   | <0.01   | 3.47        | 0.5 s  | ok        | inverted index + heap |
 | 2026-10-03 | 52.5 MB (11071 docs) | 4096 | 3840 | 16.6 s | <0.01 | 3.44 | 7.2 s | ok | inverted index + heap |
 
+Fewer heap pushes (day 3.8: push only pairs whose count went up, re-push decreased pairs lazily on pop, commit `d8271cb`, 2026-10-04)
+
+| date       | corpus            | vocab | merges | train   | s/merge | chars/token | encode | roundtrip | note          |
+|------------|-------------------|-------|--------|---------|---------|-------------|--------|-----------|---------------|
+| 2026-10-04 | 2.1 MB (486 docs) | 300   | 44     | 0.6 s   | 0.01    | 1.43        | 0.4 s  | ok        | lazy heap push |
+| 2026-10-04 | 2.1 MB (486 docs) | 4096  | 3840   | 1.2 s   | <0.01   | 3.47        | 0.6 s  | ok        | lazy heap push |
+| 2026-10-04 | 52.5 MB (11071 docs) | 4096 | 3840 | 13.0 s | <0.01 | 3.44 | 7.1 s | ok | lazy heap push |
+
 Notes
 
 - Per-merge cost drops over training because `train` recounts every pair over the
@@ -96,6 +104,19 @@ Notes
 - Updated reference point for the Rust port: 50 MB / vocab 4096 must beat 16.6 s
   train and 7.2 s encode (~7 MB/s). Python is now close enough that the Rust port
   should be compared on a larger corpus or vocab as well.
+- Fewer heap pushes (2026-10-04, day 3.8): after a merge, only pairs that contain the
+  new token are pushed, since only those counts go up. Pairs whose count went down are
+  not pushed. Their old heap entry has a higher count, so it still pops first. On pop,
+  if `count` is lower than the entry, the pair is pushed again with its current count.
+  If the pair is gone from `count`, the entry is dropped. Compression (1.43 / 3.47 /
+  3.44) and roundtrip are unchanged.
+- Train drops 1.33x at 2 MB / 4096 (1.6 s -> 1.2 s) and 1.28x at 50 MB / 4096
+  (16.6 s -> 13.0 s). The 3.6 s saved at 50 MB is close to the 3.3 s that heap push
+  took in the profile below, so heap push was the step this change removed. The
+  profile below is from `243c710` and was not re-run for this commit.
+- Encode was not touched; 0.4 / 0.6 / 7.1 s versus 0.4 / 0.5 / 7.2 s is noise.
+- Updated reference point for the Rust port: 50 MB / vocab 4096 must beat 13.0 s
+  train and 7.1 s encode.
 
 Train profile (2026-10-03, commit `243c710`)
 
