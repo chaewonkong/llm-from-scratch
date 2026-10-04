@@ -50,7 +50,13 @@ class RegexTokenizer(Tokenizer):
                 break
 
             neg_count, pair = heappop(h)
+
+            # if c is none, discard
+            # if c < -neg_count, update and repop
             while -neg_count != count.get(pair):
+                c = count.get(pair)
+                if c and c < -neg_count:
+                    heappush(h, (-c, pair))
                 neg_count, pair = heappop(h)
 
             idx = i + BYTE_SIZE
@@ -66,13 +72,12 @@ class RegexTokenizer(Tokenizer):
                     if count[p] == 0:  # cleanup
                         del count[p]
                         pair_word_idx_map.pop(p, None)
-                    else:
-                        touched.add(p)
 
                 for p in itertools.pairwise(new_word):  # assign
                     count[p] = count.get(p, 0) + freq
                     pair_word_idx_map.setdefault(p, set()).add(word_idx)
-                    touched.add(p)
+                    if idx in p:
+                        touched.add(p)
 
                 gone = set(itertools.pairwise(word)) - set(itertools.pairwise(new_word))
                 for p in gone:
