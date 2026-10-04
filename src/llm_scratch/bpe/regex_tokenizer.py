@@ -3,7 +3,7 @@ from heapq import heapify, heappop, heappush
 
 import regex as re
 
-from llm_scratch.bpe.py.tokenizer import Tokenizer
+from llm_scratch.bpe.tokenizer import Tokenizer
 
 REG_PATTERN = r"""'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}++|\p{N}{1,3}+| ?[^\s\p{L}\p{N}]++[\r\n]*+|\s++$|\s*[\r\n]|\s+(?!\S)|\s"""
 BYTE_SIZE = 256

@@ -7,7 +7,7 @@ import argparse
 import time
 from pathlib import Path
 
-from llm_scratch.bpe.py.regex_tokenizer import RegexTokenizer
+from llm_scratch.bpe.regex_tokenizer import RegexTokenizer
 from llm_scratch.fineweb import DEFAULT_PARQUET, load_text
 
 

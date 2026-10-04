@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from llm_scratch.bpe.py.regex_tokenizer import RegexTokenizer
+from llm_scratch.bpe.regex_tokenizer import RegexTokenizer
 from llm_scratch.fineweb import DEFAULT_PARQUET, load_text
 
 FIXTURE = Path(__file__).parent / "fixtures/merges_d75e8ed_2mb_v4096.json"

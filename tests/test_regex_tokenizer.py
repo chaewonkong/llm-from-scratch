@@ -3,7 +3,7 @@ import regex as re
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from llm_scratch.bpe.py.regex_tokenizer import RegexTokenizer
+from llm_scratch.bpe.regex_tokenizer import RegexTokenizer
 
 
 def test_roundtrip():
