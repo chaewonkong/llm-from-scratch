@@ -164,6 +164,10 @@ wheels = [
 ]
 
 [[package]]
+name = "bpe-rs"
+source = { editable = "rust/bpe" }
+
+[[package]]
 name = "certifi"
 version = "2026.7.22"
 source = { registry = "https://pypi.org/simple" }
@@ -742,6 +746,7 @@ name = "llm-scratch"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "bpe-rs" },
     { name = "datasets" },
     { name = "numpy" },
     { name = "pyarrow" },
@@ -760,6 +765,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "bpe-rs", editable = "rust/bpe" },
     { name = "datasets", specifier = ">=5.0.1" },
     { name = "numpy", specifier = ">=2.5.3" },
     { name = "pyarrow", specifier = ">=25.0.1" },
