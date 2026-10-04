@@ -82,11 +82,11 @@ Notes
   (1844.1 s -> 16.6 s). The incremental-count commit was never run at 50 MB, so the
   111x covers incremental counts, the inverted index and the heap together. Against
   the first baseline, 50 MB / 4096 went from 6.5 h to 16.6 s (~1400x).
-- Merges are no longer the main cost. Vocab 300 (44 merges) already takes 0.7 s of
-  the 1.6 s at vocab 4096 on the same 2 MB. So up to ~0.7 s is fixed setup (regex
-  `findall`, `word_counter`, the first pair count, `heapify`), and all 3796 later
-  merges cost about 0.9 s (~0.2 ms each). The s/merge column now rounds to 0.00, so it
-  says little. `bench_train.py` should time setup and the merge loop separately.
+- Where the time goes (2026-10-03, measured, see "Train profile" below): at 2 MB / 4096
+  setup (regex, `word_counter`, initial count) is 0.24 s and the merge loop is 1.42 s.
+  The vocab 300 run is 0.70 s because the first 44 merges are the heavy ones: they
+  touch 66K words, against 179K for all 3840 merges. The s/merge column now rounds to
+  0.00, so it says little.
 - Train time now grows slower than the corpus: 25x the data gives 10.4x the train
   time (1.6 s -> 16.6 s) and 14x the encode time (0.5 s -> 7.2 s). Both depend on
   the number of unique chunks more than on total size.
@@ -96,3 +96,45 @@ Notes
 - Updated reference point for the Rust port: 50 MB / vocab 4096 must beat 16.6 s
   train and 7.2 s encode (~7 MB/s). Python is now close enough that the Rust port
   should be compared on a larger corpus or vocab as well.
+
+Train profile (2026-10-03, commit `243c710`)
+
+Phase timers around a line-for-line copy of `train` / `encode_ordinary`. The copy's
+merges and encoded ids match the real methods; timer overhead is ~3% (50 MB: 17.41 s
+instrumented vs 16.92 s real `train()`). Median of 5 reps (2 MB) and 3 reps (50 MB).
+
+| phase                                    | 2 MB / 4096 | %     | 50 MB / 4096 | %     |
+|------------------------------------------|-------------|-------|--------------|-------|
+| 1. `re.findall`                          | 0.128 s     | 7.7   | 3.097 s      | 17.8  |
+| 2. `word_counter` (chunk hashing)        | 0.052 s     | 3.1   | 1.453 s      | 8.3   |
+| 3. initial pair count + inverted index (+ `heapify`) | 0.063 s | 3.8 | 0.474 s | 2.7 |
+| 4. merge loop                            | 1.420 s     | 85.2  | 12.386 s     | 71.1  |
+|    heap pop (incl. stale entries)        | 0.212 s     | 12.8  | 0.962 s      | 5.5   |
+|    `_merge`                              | 0.155 s     | 9.3   | 1.060 s      | 6.1   |
+|    count subtract (old pairs)            | 0.238 s     | 14.3  | 1.694 s      | 9.7   |
+|    count add + index add (new pairs)     | 0.314 s     | 18.9  | 2.268 s      | 13.0  |
+|    `gone` set diff + index discard       | 0.355 s     | 21.3  | 3.062 s      | 17.6  |
+|    heap push (touched pairs)             | 0.142 s     | 8.5   | 3.317 s      | 19.1  |
+|    index pop                             | 0.004 s     | 0.3   | 0.023 s      | 0.1   |
+
+| counter        | 2 MB    | 50 MB      |
+|----------------|---------|------------|
+| regex chunks   | 412,795 | 10,240,641 |
+| unique words   | 36,660  | 248,596    |
+| initial pairs  | 2,873   | 8,532      |
+| word visits (all merges) | 178,895 | 1,128,256 |
+| heap pushes    | 244,597 | 1,035,891  |
+| heap pops      | 135,944 | 387,260    |
+
+Encode profile, 50 MB / 4096: `re.findall` 3.10 s, `set(chunks)` 0.36 s,
+`_encode_chunk` over unique chunks 3.04 s, building the id list 0.93 s.
+
+- The merge loop is 71% of train at 50 MB. All of it is Python dict / set / tuple /
+  heap work on small int pairs. No single step dominates; the largest is heap push (19%).
+- Heap bookkeeping is mostly waste: 387K pops for 3840 merges means ~99% of popped
+  entries are stale, and ~1M pushes are made to support that.
+- `re.findall` is 18% of train and 42% of encode at 50 MB, and runs once in each. It is
+  already C (the `regex` package), so a rewrite does not automatically speed it up.
+- Amdahl bound at 50 MB / 4096: replacing only the merge loop with code that takes zero
+  time still leaves 5.02 s of phases 1-3 (3.4x at most). Beyond 3.4x, phases 1-2 must
+  change too.
