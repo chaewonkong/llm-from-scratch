@@ -11,3 +11,6 @@ mod bpe_rs {
         Ok((a + b).to_string())
     }
 }
+
+mod regex_tokenizer;
+mod tokenizer;
