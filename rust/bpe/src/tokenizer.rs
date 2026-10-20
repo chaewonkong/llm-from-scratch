@@ -20,9 +20,10 @@ pub enum DecodeError {
 #[derive(Debug)]
 pub enum TrainError {
     SpecialTokenCollision { token: String, id: u32 },
+    VocabSizeTooSmall,
 }
 pub trait Tokenizer {
-    fn train(&self, text: &str, vocab_size: &u32) -> Result<(), TrainError>;
+    fn train(&mut self, text: &str, vocab_size: &u32) -> Result<(), TrainError>;
     fn encode_with(
         &self,
         text: &str,
